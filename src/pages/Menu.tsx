@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Filter, Pizza as PizzaIcon } from 'lucide-react';
+import { BrandingFooter } from '../components/BrandingFooter';
 import { PizzaModal } from '../components/PizzaModal';
 import { useCartStore } from '../stores/cartStore';
 import { usePizzasStore } from '../stores/pizzasStore';
@@ -148,6 +149,9 @@ export function Menu() {
                 </div>
               )}
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary-800 mb-2 px-4">O Nosso Menu</h1>
+              <div className="sm:hidden">
+                <BrandingFooter isStatic={true} />
+              </div>
             </div>
 
             {/* Filtros */}
