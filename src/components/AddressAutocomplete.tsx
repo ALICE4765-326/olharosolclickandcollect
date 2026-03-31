@@ -119,7 +119,12 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         </div>
       )}
 
-      {/* Pas d'affichage d'erreur bloquante ou affolante */}
+      {/* Aide à la saisie manuelle */}
+      {!disabled && (
+        <p className="mt-2 text-[11px] text-gray-500 italic">
+          Não encontra a sua morada? Pode escrevê-la manualmente acima.
+        </p>
+      )}
     </div>
   );
 };

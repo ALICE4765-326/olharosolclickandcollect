@@ -53,6 +53,16 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
     }
   }, [isOpen]); // On ne synchronise qu'à l'ouverture
 
+  // PRÉ-CALCUL : On lance le calcul dès que l'adresse est saisie pour remplir le cache
+  useEffect(() => {
+    if (localDeliveryType === 'delivery' && localDeliveryAddress.length > 10 && settings.address) {
+      // Appel silencieux pour remplir le cache
+      calculateDeliveryTime(settings.address, localDeliveryAddress).catch(() => {
+        // Erreur ignorée en arrière-plan
+      });
+    }
+  }, [localDeliveryType, localDeliveryAddress, settings.address]);
+
   if (!isOpen) return null;
 
   const handleCheckout = async () => {
@@ -102,8 +112,10 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         custom_ingredients: item.customIngredients
       }));
 
+      const commissionPercent = settings.service_fee_percentage || 10;
       let estimatedTime = 20;
       let deliveryDistance = undefined;
+      let isManualAddress = false;
 
       if (localDeliveryType === 'delivery' && settings.address) {
         try {
@@ -113,8 +125,12 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
           );
           estimatedTime = estimate.duration;
           deliveryDistance = estimate.distance;
+          isManualAddress = estimate.isFallback || false;
 
-          if (settings.max_delivery_distance && settings.max_delivery_distance > 0 && deliveryDistance > settings.max_delivery_distance) {
+          // SOLUTION DE SECOURS : Si c'est un fallback (API en panne), on ne bloque pas le client
+          if (estimate.isFallback) {
+            console.warn('⚠️ Commande autorisée en mode Secours (API Google Offline)');
+          } else if (settings.max_delivery_distance && settings.max_delivery_distance > 0 && deliveryDistance > settings.max_delivery_distance) {
             alert(`⚠️ Desculpe, não conseguimos entregar nesta morada!\n\nDistância: ${deliveryDistance.toFixed(1)} km\nDistância máxima: ${settings.max_delivery_distance} km\n\nNo entanto, pode vir levantar a sua encomenda ao nosso restaurante.`);
             setIsSubmitting(false); // On débloque le bouton
             return;
@@ -125,7 +141,6 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         }
       }
 
-      const commissionPercent = settings.service_fee_percentage || 10;
       const publicDeliveryFee = localDeliveryType === 'delivery' && settings.delivery_fee
         ? settings.delivery_fee
         : 0;
@@ -155,7 +170,8 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         commission_total: commissionTotal,
         estimated_time: estimatedTime,
         delivery_distance: deliveryDistance,
-        status: 'pendente_pagamento' as const
+        status: 'pendente_pagamento' as const,
+        is_manual_address: isManualAddress
       };
 
       const orderId = await ordersService.createOrder(orderData);

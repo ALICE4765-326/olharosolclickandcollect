@@ -19,7 +19,7 @@ const loadGoogleMaps = async (): Promise<void> => {
       await Promise.race([getGoogleMapsLibrary('places'), timeoutPromise]);
       isGoogleMapsLoaded = true;
     } catch (err) {
-      console.warn('⚠️ Google Maps loading fallback:', err);
+      console.warn('⚠️ Google Maps loading fallback (Timeout):', err);
       isGoogleMapsLoaded = true; // On marque comme "chargé" pour ne plus bloquer
     }
   })();
@@ -30,6 +30,7 @@ const loadGoogleMaps = async (): Promise<void> => {
 export interface DeliveryEstimate {
   duration: number;
   distance: number;
+  isFallback?: boolean;
 }
 
 export const calculateDeliveryTime = async (
@@ -66,7 +67,8 @@ export const calculateDeliveryTime = async (
 
             const estimate = {
               duration: durationInMinutes,
-              distance: distanceInKm
+              distance: distanceInKm,
+              isFallback: false
             };
             distanceCache.set(cacheKey, estimate);
             resolve(estimate);
@@ -74,7 +76,12 @@ export const calculateDeliveryTime = async (
             reject(new Error('Unable to calculate route'));
           }
         } else {
-          reject(new Error(`Google Maps API error: ${status}`));
+          // Si Google renvoie une erreur (quota, etc.), on renvoie quand même un fallback
+          resolve({
+            duration: 30,
+            distance: 5,
+            isFallback: true
+          });
         }
       });
     });
@@ -82,7 +89,8 @@ export const calculateDeliveryTime = async (
     console.error('Error calculating delivery time:', error);
     return {
       duration: 30,
-      distance: 5
+      distance: 5,
+      isFallback: true
     };
   }
 };
