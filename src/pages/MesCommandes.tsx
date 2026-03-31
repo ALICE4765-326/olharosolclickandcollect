@@ -177,10 +177,27 @@ export default function MesCommandes() {
     setIsProcessingPayment(order.id);
     try {
       console.log('🚀 Iniciando pagamento pendente para ordem:', order.id);
+
+      // Reconstruire les items Stripe avec la taxa de entrega si applicable
+      // (identique à CartModal pour garantir la cohérence du montant Stripe)
+      const stripeItems = [...order.items];
+      if (order.delivery_type === 'delivery' && order.delivery_fee && order.delivery_fee > 0) {
+        stripeItems.push({
+          pizza_id: 'taxa-entrega',
+          pizza_name: 'Taxa de Entrega',
+          pizza_category: 'Serviço',
+          size: 'medium',
+          quantity: 1,
+          price: order.delivery_fee,
+          extras: [],
+          removed_ingredients: [],
+          custom_ingredients: []
+        } as any);
+      }
       
       const sessionData = await ordersService.createStripeSession(
         order.id,
-        order.items,
+        stripeItems,
         order.user.email
       );
 

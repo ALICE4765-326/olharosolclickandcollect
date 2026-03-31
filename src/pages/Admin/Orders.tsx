@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Search, MapPin } from 'lucide-react';
+import { Search, MapPin, Trash2 } from 'lucide-react';
 import { useOrderStore } from '../../stores/orderStore';
+import { ordersService } from '../../services/supabaseService';
+import toast from 'react-hot-toast';
 import type { OrderStatus } from '../../types';
 
 const STATUS_LABELS = {
@@ -24,6 +26,7 @@ export function Orders() {
   }, [subscribeToAllOrders]);
 
   const filteredOrders = orders
+    .filter(order => order.status !== 'pendente_pagamento')
     .filter(order =>
       (order.user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (order.order_number || '').toString().includes(searchTerm)
@@ -92,17 +95,38 @@ export function Orders() {
                       {(order.total || 0).toFixed(2)}€
                     </td>
                     <td className="px-6 py-4">
-                      <select
-                        value={order.status}
-                        onChange={(e) => updateOrderStatus(order.id.toString(), e.target.value as OrderStatus)}
-                        className="text-sm border border-primary-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-accent-500"
-                      >
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={order.status}
+                          onChange={(e) => updateOrderStatus(order.id.toString(), e.target.value as OrderStatus)}
+                          aria-label="Estado da encomenda"
+                          title="Estado da encomenda"
+                          className="text-sm border border-primary-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-accent-500"
+                        >
+                          {Object.entries(STATUS_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={async () => {
+                            if (window.confirm('Tem a certeza de que pretende eliminar esta encomenda permanentemente? Essa ação é irreversível.')) {
+                              try {
+                                await ordersService.deleteOrder(order.id.toString());
+                                toast.success('Encomenda eliminada com sucesso!');
+                              } catch (e: any) {
+                                toast.error('Erro ao eliminar a encomenda');
+                                console.error(e);
+                              }
+                            }
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 transition-colors"
+                          title="Eliminar encomenda (Definitivo)"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

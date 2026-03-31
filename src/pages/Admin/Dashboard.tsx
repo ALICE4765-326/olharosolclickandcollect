@@ -40,12 +40,13 @@ export function Dashboard() {
   };
 
   useEffect(() => {
-    // Filtrar apenas ordens pagas para estatísticas financeiras
+    // Filtrar ordens abandonnées no carrinho
+    const validOrders = orders.filter(o => o.status !== 'pendente_pagamento');
     const paidStatuses = ['en_attente', 'confirmee', 'en_preparation', 'prete', 'em_entrega', 'recuperee'];
-    const paidOrders = orders.filter(o => paidStatuses.includes(o.status));
+    const paidOrders = validOrders.filter(o => paidStatuses.includes(o.status));
 
     // Cálculos Globais (Histórico)
-    const total_orders = paidOrders.length;
+    const total_orders = validOrders.length;
     const total_gross_revenue = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
     const total_commission = total_gross_revenue * 0.10;
     const total_pizzeria_share = total_gross_revenue - total_commission;
@@ -66,8 +67,8 @@ export function Dashboard() {
 
     const sortedWeekly = Array.from(weeklyMap.values()).sort((a, b) => b.week.localeCompare(a.week));
 
-    // Estatísticas por Status (Todas as ordens)
-    const orders_by_status = orders.reduce((acc, order) => {
+    // Estatísticas por Status (Excluindo abandonadas)
+    const orders_by_status = validOrders.reduce((acc, order) => {
       acc[order.status] = (acc[order.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -122,13 +123,14 @@ export function Dashboard() {
   };
 
   const exportToCSV = (onlyWeekly: boolean) => {
+    const validExportOrders = orders.filter(o => o.status !== 'pendente_pagamento');
     const dataToExport = onlyWeekly
-      ? orders.filter(o => {
+      ? validExportOrders.filter(o => {
           const sevenDaysAgo = new Date();
           sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
           return new Date(o.created_at) >= sevenDaysAgo;
         })
-      : orders;
+      : validExportOrders;
 
     if (dataToExport.length === 0) {
       alert('Nenhuma encomenda para exportar');

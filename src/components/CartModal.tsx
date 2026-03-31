@@ -191,8 +191,24 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
 
       const orderId = await ordersService.createOrder(orderData);
 
-      // Novo: Criar sessão do Stripe e redirecionar para pagamento
-      const session = await ordersService.createStripeSession(orderId, orderItems, user.email);
+      // Preparar os itens com a taxa de entrega para faturar corretamente no Stripe
+      const stripeItems = [...orderItems];
+      if (localDeliveryType === 'delivery' && publicDeliveryFee > 0) {
+        stripeItems.push({
+          pizza_id: 'taxa-entrega',
+          pizza_name: 'Taxa de Entrega',
+          pizza_category: 'Serviço',
+          size: 'medium',
+          quantity: 1,
+          price: publicDeliveryFee,
+          extras: [],
+          removed_ingredients: [],
+          custom_ingredients: []
+        } as OrderItem);
+      }
+
+      // Criar sessão do Stripe contendo pizzas e entrega
+      const session = await ordersService.createStripeSession(orderId, stripeItems, user.email);
       
       if (session && session.url) {
         clearCart();

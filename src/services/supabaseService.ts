@@ -298,6 +298,11 @@ export const ordersService = {
     if (error) throw new Error(error.message);
   },
 
+  async deleteOrder(orderId: string) {
+    const { error } = await supabase.from(COLLECTIONS.ORDERS).delete().eq('id', orderId);
+    if (error) throw new Error('Falha ao apagar encomenda: ' + error.message);
+  },
+
   async updateEstimatedDeliveryTime(orderId: string, estimatedTime: string) {
     const { error } = await supabase.from(COLLECTIONS.ORDERS).update({ 
       estimated_delivery_time: estimatedTime,
