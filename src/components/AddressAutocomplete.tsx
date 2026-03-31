@@ -20,6 +20,12 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [internalValue, setInternalValue] = useState(value);
+
+  // Synchroniser la valeur interne avec la prop value si elle change de l'extérieur
+  useEffect(() => {
+    setInternalValue(value);
+  }, [value]);
 
   const onChangeRef = useRef(onChange);
   const onPlaceSelectRef = useRef(onPlaceSelect);
@@ -35,7 +41,6 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
     const init = async () => {
       try {
-        // Timeout de 3 secondes pour ne pas faire attendre le client inutilement
         const timeoutPromise = new Promise<void>((_, reject) => 
           setTimeout(() => reject(new Error('Timeout loading Google Maps')), 3000)
         );
@@ -46,7 +51,6 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
         if (!active || !inputRef.current) return;
 
-        // Toujours créer une nouvelle instance pour éviter les problèmes de re-montage
         autocompleteRef.current = new Autocomplete(
           inputRef.current,
           {
@@ -59,6 +63,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         autocompleteRef.current.addListener('place_changed', () => {
           const place = autocompleteRef.current?.getPlace();
           if (place && place.formatted_address) {
+            setInternalValue(place.formatted_address);
             onChangeRef.current(place.formatted_address);
             onPlaceSelectRef.current?.(place);
           }
@@ -83,14 +88,20 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
     };
   }, []);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setInternalValue(newValue);
+    onChange(newValue);
+  };
+
   return (
     <div className="relative group w-full">
       <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none group-focus-within:text-accent-500 transition-colors" />
       <input
         ref={inputRef}
         type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={internalValue}
+        onChange={handleInputChange}
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="new-password"
@@ -98,10 +109,13 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-all"
       />
 
-      {value && !disabled && (
+      {internalValue && !disabled && (
         <button
           type="button"
-          onClick={() => onChange('')}
+          onClick={() => {
+            setInternalValue('');
+            onChange('');
+          }}
           className="absolute right-10 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
           title="Limpar endereço"
         >
