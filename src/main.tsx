@@ -6,12 +6,17 @@ import './index.css';
 
 import { initGoogleMaps } from './lib/googleMaps';
 
-// Initialize auth state
-const { initializeAuth } = useAuth.getState();
-initializeAuth();
-
-// Initialize Google Maps
-initGoogleMaps();
+// Safe initialization
+try {
+  // Initialize auth state
+  const { initializeAuth } = useAuth.getState();
+  initializeAuth();
+  
+  // Initialize Google Maps
+  initGoogleMaps();
+} catch (error) {
+  console.error('❌ Error during initialization:', error);
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
