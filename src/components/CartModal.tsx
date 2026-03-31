@@ -138,6 +138,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         } catch (error) {
           console.error('Erro ao calcular tempo de entrega:', error);
           estimatedTime = 30;
+          isManualAddress = true; // Forcé car le calcul a échoué
         }
       }
 
@@ -163,15 +164,16 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         },
         pickup_address: settings.address,
         delivery_type: localDeliveryType,
-        delivery_address: localDeliveryType === 'delivery' ? localDeliveryAddress : undefined,
+        delivery_address: localDeliveryType === 'delivery' 
+          ? (isManualAddress ? `${localDeliveryAddress} (Manual)` : localDeliveryAddress) 
+          : undefined,
         items: orderItems,
         total: getTotal() + publicDeliveryFee,
         delivery_fee: localDeliveryType === 'delivery' ? publicDeliveryFee : undefined,
         commission_total: commissionTotal,
         estimated_time: estimatedTime,
         delivery_distance: deliveryDistance,
-        status: 'pendente_pagamento' as const,
-        is_manual_address: isManualAddress
+        status: 'pendente_pagamento' as const
       };
 
       const orderId = await ordersService.createOrder(orderData);
