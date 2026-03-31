@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, X, AlertCircle } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 import { importLibrary } from '@googlemaps/js-api-loader';
 
 interface AddressAutocompleteProps {
@@ -20,7 +20,6 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   const onChangeRef = useRef(onChange);
   const onPlaceSelectRef = useRef(onPlaceSelect);
@@ -36,12 +35,16 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
     const init = async () => {
       try {
-        // Un petit délai pour s'assurer que le modal est bien en place et visible
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Timeout de 3 secondes pour ne pas faire attendre le client inutilement
+        const timeoutPromise = new Promise<void>((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout loading Google Maps')), 3000)
+        );
 
         if (!active || !inputRef.current) return;
 
-        const { Autocomplete } = await importLibrary('places') as google.maps.PlacesLibrary;
+        const importPromise = importLibrary('places') as Promise<google.maps.PlacesLibrary>;
+        
+        const { Autocomplete } = await Promise.race([importPromise, timeoutPromise]) as google.maps.PlacesLibrary;
 
         if (!active || !inputRef.current) return;
 
@@ -64,11 +67,9 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         });
 
         setIsLoading(false);
-        setError(null);
       } catch (err: any) {
         console.error('🗺️ Autocomplete Error:', err);
         if (active) {
-          setError(`Maps error: ${err.message || 'Check connection'}`);
           setIsLoading(false);
         }
       }
@@ -120,12 +121,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
         </div>
       )}
 
-      {error && (
-        <div className="mt-1 flex items-center gap-1 text-[10px] text-red-500">
-          <AlertCircle className="w-3 h-3" />
-          <span>{error} (Saisie manuelle uniquement)</span>
-        </div>
-      )}
+      {/* Pas d'affichage d'erreur bloquante ou affolante */}
     </div>
   );
 };

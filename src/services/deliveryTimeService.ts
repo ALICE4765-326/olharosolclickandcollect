@@ -28,7 +28,7 @@ const loadGoogleMaps = (): Promise<void> => {
   googleMapsPromise = Promise.race([
     scriptPromise,
     new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout loading Google Maps')), 5000)
+      setTimeout(() => reject(new Error('Timeout loading Google Maps')), 3000)
     )
   ]).catch(err => {
     console.warn('⚠️ Google Maps loading failed or timed out, using fallback values:', err.message);
