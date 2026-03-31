@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { DollarSign, ShoppingBag, TrendingUp, Users, Save, Key, Download, FileText, Clock, Loader2 } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, Save, Key, Download, FileText, Clock, Trash2 } from 'lucide-react';
 import { useOrderStore } from '../../stores/orderStore';
 import { usePizzariaSettings } from '../../hooks/usePizzariaSettings';
+import { audioNotificationService } from '../../services/audioNotificationService';
+import { ordersService } from '../../services/supabaseService';
+import toast from 'react-hot-toast';
 
 export function Dashboard() {
   const { orders, initAdminOrdersListener } = useOrderStore();
@@ -20,6 +23,34 @@ export function Dashboard() {
   const [deletePassword, setDeletePassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [lastNotifiedOrderId, setLastNotifiedOrderId] = useState<string | null>(null);
+
+  // Déverrouiller l'audio au premier clic/touche
+  useEffect(() => {
+    const unlock = () => {
+      audioNotificationService.unlockAudio();
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
+  // Alerte sonore pour les nouvelles commandes (même logique que la pizzaria)
+  useEffect(() => {
+    const newOrder = orders.find(o => o.status === 'en_attente');
+    if (newOrder && newOrder.id !== lastNotifiedOrderId) {
+      audioNotificationService.playNotification();
+      if ('vibrate' in navigator) {
+        navigator.vibrate([300, 100, 300]);
+      }
+      setLastNotifiedOrderId(newOrder.id);
+    }
+  }, [orders, lastNotifiedOrderId]);
 
   useEffect(() => {
     const unsubscribe = initAdminOrdersListener();
@@ -163,6 +194,18 @@ export function Dashboard() {
     link.click();
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (window.confirm('Tem a certeza de que pretende eliminar esta linha permanentemente do registo?')) {
+      try {
+        await ordersService.deleteOrder(orderId);
+        toast.success('Registo eliminado com sucesso');
+      } catch (error) {
+        console.error('Erro ao eliminar:', error);
+        toast.error('Erro ao eliminar o registo');
+      }
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -274,11 +317,12 @@ export function Dashboard() {
                 <th className="p-3">Estado</th>
                 <th className="p-3 text-right">Total (€)</th>
                 <th className="p-3 text-right text-green-600">Com. 10% (€)</th>
+                <th className="p-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {orders.map((o) => (
-                <tr key={o.id} className={`hover:bg-gray-50 ${o.pizzeria_hidden ? 'bg-red-50/30' : ''}`}>
+                <tr key={o.id} className={`hover:bg-gray-50 group ${o.pizzeria_hidden ? 'bg-red-50/30' : ''}`}>
                   <td className="p-3">#{o.order_number}</td>
                   <td className="p-3">{new Date(o.created_at).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                   <td className="p-3 truncate max-w-[150px]">{o.user.full_name}</td>
@@ -289,6 +333,15 @@ export function Dashboard() {
                   </td>
                   <td className="p-3 text-right font-medium">{o.total.toFixed(2)}€</td>
                   <td className="p-3 text-right text-green-600 font-bold">{((o.total || 0) * 0.10).toFixed(2)}€</td>
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() => handleDeleteOrder(o.id.toString())}
+                      className="text-red-400 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                      title="Eliminar esta linha do registo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

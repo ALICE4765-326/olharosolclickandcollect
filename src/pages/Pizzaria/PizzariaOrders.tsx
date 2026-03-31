@@ -4,6 +4,7 @@ import { ordersService } from '../../services/supabaseService';
 import { useOrderStore } from '../../stores/orderStore';
 import { usePizzariaSettings } from '../../hooks/usePizzariaSettings';
 import { calculateDeliveryTime } from '../../services/deliveryTimeService';
+import { audioNotificationService } from '../../services/audioNotificationService';
 import toast from 'react-hot-toast';
 import type { Order, OrderStatus } from '../../types';
 
@@ -40,6 +41,34 @@ export function PizzariaOrders() {
   const [showCancellationModal, setShowCancellationModal] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
   const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string; newStatus: OrderStatus } | null>(null);
+  const [lastNotifiedOrderId, setLastNotifiedOrderId] = useState<string | null>(null);
+
+  // Déverrouiller l'audio au premier clic/touche
+  useEffect(() => {
+    const unlock = () => {
+      audioNotificationService.unlockAudio();
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
+  // Alerte sonore pour les nouvelles commandes
+  useEffect(() => {
+    const newOrder = orders.find(o => o.status === 'en_attente');
+    if (newOrder && newOrder.id !== lastNotifiedOrderId) {
+      audioNotificationService.playNotification();
+      if ('vibrate' in navigator) {
+        navigator.vibrate([300, 100, 300]);
+      }
+      setLastNotifiedOrderId(newOrder.id);
+    }
+  }, [orders, lastNotifiedOrderId]);
 
   useEffect(() => {
     const unsubscribe = initAdminOrdersListener();
