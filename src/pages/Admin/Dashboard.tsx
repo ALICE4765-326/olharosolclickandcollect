@@ -72,7 +72,7 @@ export function Dashboard() {
 
   useEffect(() => {
     // Filtrar ordens abandonnées no carrinho
-    const validOrders = orders.filter(o => o.status !== 'pendente_pagamento');
+    const validOrders = orders.filter(o => o.status !== 'pendente_pagamento' && !o.admin_hidden);
     const paidStatuses = ['en_attente', 'confirmee', 'en_preparation', 'prete', 'em_entrega', 'recuperee'];
     const paidOrders = validOrders.filter(o => paidStatuses.includes(o.status));
 
@@ -192,6 +192,18 @@ export function Dashboard() {
     link.href = url;
     link.download = `comissoes_${onlyWeekly ? 'semanal' : 'total'}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+  };
+
+  const handleHideOrder = async (orderId: string) => {
+    if (window.confirm('Tem a certeza de que pretende remover esta linha do seu registo de facturação? Esta ação não afectará a visualização da pizzaria.')) {
+      try {
+        await ordersService.hideOrderForAdmin(orderId);
+        toast.success('Registo removido do seu painel');
+      } catch (error) {
+        console.error('Erro ao ocultar:', error);
+        toast.error('Erro ao remover o registo');
+      }
+    }
   };
 
   const handleDeleteOrder = async (orderId: string) => {
@@ -320,8 +332,10 @@ export function Dashboard() {
                 <th className="p-3 text-center">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
-              {orders.map((o) => (
+            <tbody className="divide-y text-[13px]">
+              {orders
+                .filter(o => !o.admin_hidden) // Filtra encomendas ocultadas pelo administrador
+                .map((o) => (
                 <tr key={o.id} className={`hover:bg-gray-50 group ${o.pizzeria_hidden ? 'bg-red-50/30' : ''}`}>
                   <td className="p-3">#{o.order_number}</td>
                   <td className="p-3">{new Date(o.created_at).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
@@ -333,11 +347,11 @@ export function Dashboard() {
                   </td>
                   <td className="p-3 text-right font-medium">{o.total.toFixed(2)}€</td>
                   <td className="p-3 text-right text-green-600 font-bold">{((o.total || 0) * 0.10).toFixed(2)}€</td>
-                  <td className="p-3 text-center">
+                  <td className="p-2 text-center">
                     <button
-                      onClick={() => handleDeleteOrder(o.id.toString())}
+                      onClick={() => handleHideOrder(o.id.toString())}
                       className="text-red-400 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Eliminar esta linha do registo"
+                      title="Remover apenas do meu registo de facturação"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

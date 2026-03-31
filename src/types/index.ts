@@ -98,6 +98,7 @@ export interface Order {
   estimated_time?: number;
   commission_total?: number;
   pizzeria_hidden?: boolean;
+  admin_hidden?: boolean;
   created_at: string;
   updated_at?: string;
 }

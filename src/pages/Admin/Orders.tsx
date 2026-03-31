@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, MapPin, Trash2 } from 'lucide-react';
 import { useOrderStore } from '../../stores/orderStore';
 import { ordersService } from '../../services/supabaseService';
+import { audioNotificationService } from '../../services/audioNotificationService';
 import toast from 'react-hot-toast';
 import type { OrderStatus } from '../../types';
 
@@ -25,8 +26,37 @@ export function Orders() {
     };
   }, [subscribeToAllOrders]);
 
+  const [lastNotifiedOrderId, setLastNotifiedOrderId] = useState<string | null>(null);
+
+  // Déverrouiller l'audio au premier clic/touche
+  useEffect(() => {
+    const unlock = () => {
+      audioNotificationService.unlockAudio();
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+    window.addEventListener('click', unlock);
+    window.addEventListener('touchstart', unlock);
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('touchstart', unlock);
+    };
+  }, []);
+
+  // Alerte sonore pour les nouvelles commandes
+  useEffect(() => {
+    const newOrder = orders.find(o => o.status === 'en_attente');
+    if (newOrder && newOrder.id !== lastNotifiedOrderId) {
+      audioNotificationService.playNotification();
+      if ('vibrate' in navigator) {
+        navigator.vibrate([300, 100, 300]);
+      }
+      setLastNotifiedOrderId(newOrder.id);
+    }
+  }, [orders, lastNotifiedOrderId]);
+
   const filteredOrders = orders
-    .filter(order => order.status !== 'pendente_pagamento')
+    .filter(order => order.status !== 'pendente_pagamento' && !order.admin_hidden)
     .filter(order =>
       (order.user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (order.order_number || '').toString().includes(searchTerm)
@@ -111,18 +141,18 @@ export function Orders() {
                         </select>
                         <button
                           onClick={async () => {
-                            if (window.confirm('Tem a certeza de que pretende eliminar esta encomenda permanentemente? Essa ação é irreversível.')) {
+                            if (window.confirm('Tem a certeza de que pretende remover esta encomenda do seu painel? Esta ação não afectará a visualização da pizzaria.')) {
                               try {
-                                await ordersService.deleteOrder(order.id.toString());
-                                toast.success('Encomenda eliminada com sucesso!');
+                                await ordersService.hideOrderForAdmin(order.id.toString());
+                                toast.success('Encomenda removida do painel admin');
                               } catch (e: any) {
-                                toast.error('Erro ao eliminar a encomenda');
+                                toast.error('Erro ao remover a encomenda');
                                 console.error(e);
                               }
                             }
                           }}
                           className="text-red-500 hover:text-red-700 p-1.5 rounded-full hover:bg-red-50 transition-colors"
-                          title="Eliminar encomenda (Definitivo)"
+                          title="Remover do painel admin (não afeta a pizzaria)"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

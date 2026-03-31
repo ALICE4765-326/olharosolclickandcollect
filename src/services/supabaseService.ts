@@ -327,6 +327,14 @@ export const ordersService = {
     if (error) throw new Error(error.message);
   },
 
+  async hideOrderForAdmin(orderId: string) {
+    const { error } = await supabase.from(COLLECTIONS.ORDERS).update({ 
+      admin_hidden: true,
+      updated_at: new Date().toISOString() 
+    }).eq('id', orderId);
+    if (error) throw new Error(error.message);
+  },
+
   mapOrder(doc: any): Order {
     return {
       id: doc.id,
@@ -349,6 +357,7 @@ export const ordersService = {
       order_number: parseInt(doc.order_number),
       created_at: doc.created_at,
       pizzeria_hidden: doc.pizzeria_hidden,
+      admin_hidden: doc.admin_hidden,
       cancellation_reason: doc.cancellation_reason,
       preparation_time: doc.preparation_time,
       delivery_time: doc.delivery_time,
