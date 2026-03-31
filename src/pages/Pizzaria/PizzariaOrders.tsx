@@ -58,17 +58,30 @@ export function PizzariaOrders() {
     };
   }, []);
 
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
   // Alerte sonore pour les nouvelles commandes
   useEffect(() => {
     const newOrder = orders.find(o => o.status === 'en_attente');
-    if (newOrder && newOrder.id !== lastNotifiedOrderId) {
-      audioNotificationService.playNotification();
-      if ('vibrate' in navigator) {
-        navigator.vibrate([300, 100, 300]);
+    
+    if (newOrder) {
+      // Se for a primeira carga, apenas registamos o ID sem tocar o som
+      if (isInitialLoad) {
+        setLastNotifiedOrderId(newOrder.id);
+        setIsInitialLoad(false);
+        return;
       }
-      setLastNotifiedOrderId(newOrder.id);
+
+      // Se for uma ordem nova (ID diferente da última notificada)
+      if (newOrder.id !== lastNotifiedOrderId) {
+        audioNotificationService.playNotification();
+        if ('vibrate' in navigator) {
+          navigator.vibrate([300, 100, 300]);
+        }
+        setLastNotifiedOrderId(newOrder.id);
+      }
     }
-  }, [orders, lastNotifiedOrderId]);
+  }, [orders, lastNotifiedOrderId, isInitialLoad]);
 
   useEffect(() => {
     const unsubscribe = initAdminOrdersListener();
