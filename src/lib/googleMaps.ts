@@ -1,4 +1,4 @@
-import { Loader, importLibrary, setOptions } from '@googlemaps/js-api-loader';
+import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 
 const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
