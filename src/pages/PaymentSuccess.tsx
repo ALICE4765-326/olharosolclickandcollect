@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, ArrowRight } from 'lucide-react';
 import { ordersService } from '../services/supabaseService';
-import toast from 'react-hot-toast';
+import { Order } from '../types';
 
 export const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
+  const [order, setOrder] = useState<Order | null>(null);
   
   const orderId = searchParams.get('order_id');
 
@@ -21,7 +22,15 @@ export const PaymentSuccess: React.FC = () => {
       }
 
       try {
-        const success = await ordersService.confirmPayment(orderId);
+        await ordersService.confirmPayment(orderId);
+        
+        // Fetch order details to check delivery type
+        const allOrders = await ordersService.getAllOrders();
+        const currentOrder = allOrders.find(o => o.id === orderId);
+        if (currentOrder) {
+          setOrder(currentOrder);
+        }
+
         setStatus('success');
         console.log('✅ Pagamento confirmado no Supabase');
         
@@ -46,7 +55,7 @@ export const PaymentSuccess: React.FC = () => {
     );
   }
 
-  // Même si status === 'error', on a rendu confirmOrder tolérant pour mettre 'success'
+  // Mesmo se status === 'error', on a rendu confirmOrder tolérant pour mettre 'success'
   // On s'assure ici que l'UI montre toujours le succès pour le client
   return (
     <div className="max-w-2xl mx-auto text-center py-12 px-4">
@@ -62,15 +71,18 @@ export const PaymentSuccess: React.FC = () => {
           Obrigado pela sua encomenda. A pizzaria foi notificada e vai começar a preparar o seu pedido em breve.
         </p>
 
-        <div className="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-8 text-center animate-pulse">
-          <p className="text-red-700 font-extrabold text-xl mb-2 flex items-center justify-center gap-2">
-            ⚠️ AVISO IMPORTANTE ⚠️
-          </p>
-          <p className="text-red-900 text-lg">
-            Terá de <strong>confirmar o horário</strong> da sua entrega <strong>na aplicação</strong> assim que a pizzaria propor uma hora. <br />
-            Fique atento às notificações na página "As Minhas Encomendas".
-          </p>
-        </div>
+        {/* Só mostramos o aviso se for entrega (delivery) */}
+        {order?.delivery_type === 'delivery' && (
+          <div className="bg-red-50 border-2 border-red-500 rounded-xl p-6 mb-8 text-center animate-pulse">
+            <p className="text-red-700 font-extrabold text-xl mb-2 flex items-center justify-center gap-2">
+              ⚠️ AVISO IMPORTANTE ⚠️
+            </p>
+            <p className="text-red-900 text-lg">
+              Terá de <strong>confirmar o horário</strong> da sua entrega <strong>na aplicação</strong> assim que a pizzaria propor uma hora. <br />
+              Fique atento às notificações na página "As Minhas Encomendas".
+            </p>
+          </div>
+        )}
 
         <div className="space-y-4">
           <button
