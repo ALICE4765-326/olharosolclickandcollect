@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
-import { DollarSign, ShoppingBag, TrendingUp, Users, Save, Key, Download, FileText } from 'lucide-react';
+import { DollarSign, ShoppingBag, TrendingUp, Users, Save, Key, Download, FileText, Clock, Loader2 } from 'lucide-react';
 import { useOrderStore } from '../../stores/orderStore';
 import { usePizzariaSettings } from '../../hooks/usePizzariaSettings';
 
 export function Dashboard() {
   const { orders, initAdminOrdersListener } = useOrderStore();
   const { settings: firestoreSettings, updateSettings } = usePizzariaSettings();
+  
   const [stats, setStats] = useState({
     total_orders: 0,
-    total_revenue: 0,
+    total_gross_revenue: 0,
+    total_pizzeria_share: 0,
+    total_commission: 0,
     average_order_value: 0,
     orders_by_status: {} as Record<string, number>
   });
+
+  const [weeklyStats, setWeeklyStats] = useState<any[]>([]);
   const [deletePassword, setDeletePassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -25,40 +30,69 @@ export function Dashboard() {
     setDeletePassword(firestoreSettings.delete_password || '');
   }, [firestoreSettings]);
 
-  useEffect(() => {
-    // Filtrar as encomendas dos últimos 7 dias
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
+  // Fonction pour obtenir le numéro de semaine ISO
+  const getWeekNumber = (d: Date) => {
+    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${weekNo}`;
+  };
 
-    const weeklyOrders = orders.filter(order => {
-      const orderDate = new Date(order.created_at);
-      return orderDate >= last7Days;
+  useEffect(() => {
+    // Filtrar apenas ordens pagas para estatísticas financeiras
+    const paidStatuses = ['en_attente', 'confirmee', 'en_preparation', 'prete', 'em_entrega', 'recuperee'];
+    const paidOrders = orders.filter(o => paidStatuses.includes(o.status));
+
+    // Cálculos Globais (Histórico)
+    const total_orders = paidOrders.length;
+    const total_gross_revenue = paidOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const total_commission = total_gross_revenue * 0.10;
+    const total_pizzeria_share = total_gross_revenue - total_commission;
+    const average_order_value = total_orders > 0 ? total_gross_revenue / total_orders : 0;
+
+    // Estatísticas por Semana
+    const weeklyMap = new Map();
+    paidOrders.forEach(order => {
+      const weekKey = getWeekNumber(new Date(order.created_at));
+      if (!weeklyMap.has(weekKey)) {
+        weeklyMap.set(weekKey, { week: weekKey, gross: 0, commission: 0, count: 0 });
+      }
+      const data = weeklyMap.get(weekKey);
+      data.gross += (order.total || 0);
+      data.commission += (order.total || 0) * 0.10;
+      data.count += 1;
     });
 
-    const total_orders = weeklyOrders.length;
-    const total_revenue = weeklyOrders.reduce((sum, order) => sum + (order.total || 0), 0);
-    const average_order_value = total_orders > 0 ? total_revenue / total_orders : 0;
+    const sortedWeekly = Array.from(weeklyMap.values()).sort((a, b) => b.week.localeCompare(a.week));
 
-    // Contar as encomendas por estado
-    const orders_by_status = weeklyOrders.reduce((acc, order) => {
+    // Estatísticas por Status (Todas as ordens)
+    const orders_by_status = orders.reduce((acc, order) => {
       acc[order.status] = (acc[order.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     setStats({
       total_orders,
-      total_revenue,
+      total_gross_revenue,
+      total_pizzeria_share,
+      total_commission,
       average_order_value,
       orders_by_status
     });
+
+    setWeeklyStats(sortedWeekly);
   }, [orders]);
 
   const STATUS_LABELS = {
+    pendente_pagamento: 'Pendente Pagto',
     en_attente: 'Em Espera',
     confirmee: 'Confirmada',
     en_preparation: 'Em Preparação',
     prete: 'Pronta',
-    recuperee: 'Entregue'
+    em_entrega: 'Em Entrega',
+    recuperee: 'Entregue',
+    cancelled: 'Cancelada'
   };
 
   const handleSavePassword = async (e: React.FormEvent) => {
@@ -72,9 +106,7 @@ export function Dashboard() {
         setIsSaving(false);
         return;
       }
-
       const success = await updateSettings({ delete_password: deletePassword });
-
       if (success) {
         setMessage({ type: 'success', text: 'Senha guardada com sucesso!' });
         setTimeout(() => setMessage(null), 3000);
@@ -90,11 +122,12 @@ export function Dashboard() {
   };
 
   const exportToCSV = (onlyWeekly: boolean) => {
-    const last7Days = new Date();
-    last7Days.setDate(last7Days.getDate() - 7);
-
     const dataToExport = onlyWeekly
-      ? orders.filter(order => new Date(order.created_at) >= last7Days)
+      ? orders.filter(o => {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          return new Date(o.created_at) >= sevenDaysAgo;
+        })
       : orders;
 
     if (dataToExport.length === 0) {
@@ -102,188 +135,162 @@ export function Dashboard() {
       return;
     }
 
-    // Header do CSV
     const headers = [
-      'Numero da Encomenda',
-      'Data',
-      'Cliente',
-      'Telefone',
-      'Endereco',
-      'Tipo',
-      'Total (€)',
-      'Estado',
-      'Taxa de Entrega (€)'
+      'Nº Encomenda', 'Data', 'Clente', 'Total (€)', 'Comissão 10% (€)', 'Parte Pizza 90% (€)', 'Estado', 'Tipo'
     ];
 
-    // Formatação dos dados
     const csvContent = [
       headers.join(';'),
-      ...dataToExport.map(order => [
-        order.order_number,
-        new Date(order.created_at).toLocaleString('pt-PT'),
-        `"${order.user.full_name}"`,
-        `"${order.user.phone}"`,
-        `"${order.user.address}"`,
-        order.delivery_type === 'delivery' ? 'Entrega' : 'Levantamento',
-        (order.total || 0).toFixed(2),
-        order.status,
-        (order.delivery_fee || 0).toFixed(2)
+      ...dataToExport.map(o => [
+        o.order_number,
+        new Date(o.created_at).toLocaleString('pt-PT'),
+        `"${o.user.full_name}"`,
+        (o.total || 0).toFixed(2),
+        ((o.total || 0) * 0.10).toFixed(2),
+        ((o.total || 0) * 0.90).toFixed(2),
+        o.status,
+        o.delivery_type
       ].join(';'))
     ].join('\n');
 
-    // Criação do ficheiro e transferência
     const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    const filename = onlyWeekly ? `resumo_semanal_${new Date().toISOString().split('T')[0]}.csv` : `historico_total_${new Date().toISOString().split('T')[0]}.csv`;
-
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = `comissoes_${onlyWeekly ? 'semanal' : 'total'}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    document.body.removeChild(link);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold text-primary-800">Administração - Resumo Semanal</h1>
+        <h1 className="text-3xl font-bold text-primary-800">Administração - Facturação 10%</h1>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => exportToCSV(true)}
             className="flex items-center space-x-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-md hover:bg-primary-200 transition text-sm font-medium"
           >
             <Download className="h-4 w-4" />
-            <span>Exportar Semana (CSV)</span>
+            <span>Resumo Semanal (CSV)</span>
           </button>
           <button
             onClick={() => exportToCSV(false)}
             className="flex items-center space-x-2 bg-primary-700 text-white px-4 py-2 rounded-md hover:bg-primary-800 transition text-sm font-medium"
           >
             <FileText className="h-4 w-4" />
-            <span>Exportar Tudo (CSV)</span>
+            <span>Histórico Total (CSV)</span>
           </button>
         </div>
       </div>
 
-      {/* Statistiques financières */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Cartões Financeiros (Histórico Total) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard
-          title="Total de Encomendas"
-          value={stats.total_orders}
-          icon={<ShoppingBag className="h-6 w-6" />}
-          color="bg-blue-500"
-        />
-        <StatCard
-          title="Volume de Negócios Total"
-          value={`${stats.total_revenue.toFixed(2)}€`}
+          title="Faturação Total Acumulada"
+          value={`${stats.total_gross_revenue.toFixed(2)}€`}
           icon={<DollarSign className="h-6 w-6" />}
-          color="bg-green-500"
+          color="bg-primary-600"
+          subtitle="Valor total pago pelos clientes"
         />
         <StatCard
-          title="Carrinho Médio"
-          value={`${stats.average_order_value.toFixed(2)}€`}
+          title="Minha Comissão (10%)"
+          value={`${stats.total_commission.toFixed(2)}€`}
           icon={<TrendingUp className="h-6 w-6" />}
-          color="bg-purple-500"
+          color="bg-green-600"
+          subtitle="Montante total a faturar à Pizzaria"
         />
         <StatCard
-          title="Clientes Únicos"
-          value={new Set(orders.map(o => o.user_id)).size}
-          icon={<Users className="h-6 w-6" />}
-          color="bg-orange-500"
+          title="Parte da Pizzaria (90%)"
+          value={`${stats.total_pizzeria_share.toFixed(2)}€`}
+          icon={<ShoppingBag className="h-6 w-6" />}
+          color="bg-blue-600"
+          subtitle="Receitas líquidas estimadas p/ Pizzaria"
         />
       </div>
 
-      {/* Resumo das encomendas por estado */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-primary-800 mb-4">
-          Resumo de Encomendas (Últimos 7 dias)
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {Object.entries(STATUS_LABELS).map(([status, label]) => (
-            <div key={status} className="text-center p-4 bg-primary-50 rounded-lg">
-              <div className="text-2xl font-bold text-primary-800">
-                {stats.orders_by_status[status] || 0}
-              </div>
-              <div className="text-sm text-primary-600">{label}</div>
-            </div>
-          ))}
+      {/* Resumo de Facturação por Semana */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="p-6 border-b">
+          <h2 className="text-xl font-bold text-primary-800 flex items-center gap-2">
+            <Clock className="h-5 w-5 text-accent-500" />
+            Resumo de Facturação por Semana
+          </h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-primary-50 text-primary-700 font-semibold">
+              <tr>
+                <th className="p-4">Semana (ISO)</th>
+                <th className="p-4">Nº Encomendas</th>
+                <th className="p-4">Valor Total (€)</th>
+                <th className="p-4 bg-green-50 text-green-800">Comissão a Faturar (10%)</th>
+                <th className="p-4 text-primary-500 italic">Parte Pizzaria (90%)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {weeklyStats.map((w) => (
+                <tr key={w.week} className="hover:bg-gray-50 transition">
+                  <td className="p-4 font-bold">{w.week}</td>
+                  <td className="p-4">{w.count}</td>
+                  <td className="p-4">{w.gross.toFixed(2)}€</td>
+                  <td className="p-4 bg-green-50 font-bold text-green-700">{w.commission.toFixed(2)}€</td>
+                  <td className="p-4 text-gray-400">{(w.gross * 0.9).toFixed(2)}€</td>
+                </tr>
+              ))}
+              {weeklyStats.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">A processar dados...</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Résumé financier par période */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-primary-800 mb-4">
-            Receitas por Dia (Últimos 7 Dias)
-          </h2>
-          <div className="space-y-3">
-            {Array.from({ length: 7 }, (_, i) => {
-              const date = new Date();
-              date.setDate(date.getDate() - i);
-              const dateStr = date.toISOString().split('T')[0];
-
-              const dayOrders = orders.filter(order =>
-                order.created_at.startsWith(dateStr)
-              );
-              const dayRevenue = dayOrders.reduce((sum, order) => sum + (order.total || 0), 0);
-
-              return (
-                <div key={dateStr} className="flex justify-between items-center">
-                  <span className="text-primary-600">
-                    {date.toLocaleDateString('pt-PT', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'short'
-                    })}
-                  </span>
-                  <div className="text-right">
-                    <div className="font-semibold text-primary-800">
-                      {dayRevenue.toFixed(2)}€
-                    </div>
-                    <div className="text-sm text-primary-600">
-                      {dayOrders.length} encomendas
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+      {/* LISTA DETALHADA POUR COMPROVATIVOS */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="p-6 border-b flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-primary-800">Registo Histórico de Encomendas (Justificativos)</h2>
+            <p className="text-sm text-primary-600 mt-1">Exibindo todas as encomendas, incluindo as ocultadas pela pizzaria.</p>
           </div>
+          <button
+            onClick={() => exportToCSV(false)}
+            className="flex items-center space-x-2 bg-green-50 text-green-700 px-4 py-2 rounded-md hover:bg-green-100 transition text-sm font-bold border border-green-200"
+          >
+            <Download className="h-4 w-4" />
+            <span>Baixar Registo Detalhado (CSV)</span>
+          </button>
         </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-primary-800 mb-4">
-            Encomendas Recentes
-          </h2>
-          <div className="space-y-3">
-            {orders.slice(0, 8).map((order) => (
-              <div key={order.id} className="flex justify-between items-center border-b border-primary-100 pb-2">
-                <div>
-                  <div className="font-medium text-primary-800">
-                    {order.user.full_name}
-                  </div>
-                  <div className="text-sm text-primary-600">
-                    {new Date(order.created_at).toLocaleDateString('pt-PT', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-green-600">
-                    {(order.total || 0).toFixed(2)}€
-                  </div>
-                  <div className="text-sm text-primary-600">
-                    {order.items.length} artigo(s)
-                  </div>
-                </div>
-              </div>
-            ))}
-            {orders.length === 0 && (
-              <p className="text-primary-500 text-center">Nenhuma encomenda</p>
-            )}
-          </div>
+        <div className="overflow-x-auto max-h-[600px]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-100 sticky top-0 z-10">
+              <tr>
+                <th className="p-3">Nº</th>
+                <th className="p-3">Data</th>
+                <th className="p-3">Cliente</th>
+                <th className="p-3">Estado</th>
+                <th className="p-3 text-right">Total (€)</th>
+                <th className="p-3 text-right text-green-600">Com. 10% (€)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {orders.map((o) => (
+                <tr key={o.id} className={`hover:bg-gray-50 ${o.pizzeria_hidden ? 'bg-red-50/30' : ''}`}>
+                  <td className="p-3">#{o.order_number}</td>
+                  <td className="p-3">{new Date(o.created_at).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                  <td className="p-3 truncate max-w-[150px]">{o.user.full_name}</td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${o.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-primary-100 text-primary-700'}`}>
+                      {(STATUS_LABELS as any)[o.status] || o.status}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right font-medium">{o.total.toFixed(2)}€</td>
+                  <td className="p-3 text-right text-green-600 font-bold">{((o.total || 0) * 0.10).toFixed(2)}€</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -293,38 +300,18 @@ export function Dashboard() {
           <Key className="h-5 w-5 mr-2" />
           Senha de Eliminação de Encomendas
         </h2>
-
         {message && (
-          <div className={`mb-4 p-4 rounded-lg ${message.type === 'success'
-            ? 'bg-green-100 border border-green-400 text-green-700'
-            : 'bg-red-100 border border-red-400 text-red-700'
-            }`}>
+          <div className={`mb-4 p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}>
             {message.text}
           </div>
         )}
-
         <form onSubmit={handleSavePassword} className="flex flex-col md:flex-row items-end gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-primary-700 mb-2">
-              Senha para Eliminar Todas as Encomendas
-            </label>
-            <input
-              type="text"
-              value={deletePassword}
-              onChange={(e) => setDeletePassword(e.target.value)}
-              className="w-full px-3 py-2 border border-primary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-500"
-              placeholder="Ex: 1234"
-              required
-            />
-            <p className="text-xs text-primary-500 mt-1">
-              Esta senha será necessária para eliminar todas as encomendas no painel de gestão da pizzaria.
-            </p>
+            <label className="block text-sm font-medium text-primary-700 mb-2">Senha para Eliminar Todas as Encomendas</label>
+            <input type="text" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} className="w-full px-3 py-2 border border-primary-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent-500" placeholder="Ex: 1234" required />
+            <p className="text-xs text-primary-500 mt-1">Esta senha será necessária para eliminar todas as encomendas no painel de gestão da pizzaria.</p>
           </div>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="flex items-center space-x-2 bg-accent-500 text-white px-6 py-2 rounded-md hover:bg-accent-600 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-          >
+          <button type="submit" disabled={isSaving} className="flex items-center space-x-2 bg-accent-500 text-white px-6 py-2 rounded-md hover:bg-accent-600 transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap">
             <Save className="h-5 w-5" />
             <span>{isSaving ? 'A gravar...' : 'Guardar'}</span>
           </button>
@@ -339,9 +326,10 @@ interface StatCardProps {
   value: string | number;
   icon: React.ReactNode;
   color: string;
+  subtitle?: string;
 }
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
+function StatCard({ title, value, icon, color, subtitle }: StatCardProps) {
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-center space-x-4">
@@ -351,6 +339,7 @@ function StatCard({ title, value, icon, color }: StatCardProps) {
         <div>
           <p className="text-sm text-primary-600">{title}</p>
           <p className="text-2xl font-bold text-primary-800">{value}</p>
+          {subtitle && <p className="text-[10px] text-gray-400 mt-1">{subtitle}</p>}
         </div>
       </div>
     </div>
