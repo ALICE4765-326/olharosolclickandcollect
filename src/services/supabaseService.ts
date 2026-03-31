@@ -63,8 +63,8 @@ export const pizzasService = {
       active: true,
     };
 
-    if (pizzaData.has_unique_price && pizzaData.unique_price && pizzaData.unique_price > 0) {
-      // mapped to price_medium for now or handling unique_price conceptually
+    if (pizzaData.has_unique_price && pizzaData.unique_price !== undefined) {
+      // Quando é preço único, mapeamos para price_medium
       cleanData.price_medium = pizzaData.unique_price;
     }
 
@@ -85,17 +85,15 @@ export const pizzasService = {
     if (pizzaData.max_custom_ingredients !== undefined) cleanData.max_custom_ingredients = pizzaData.max_custom_ingredients;
     if (pizzaData.custom_ingredients !== undefined) cleanData.custom_ingredients = pizzaData.custom_ingredients;
 
-    if (pizzaData.has_unique_price !== undefined) {
-      cleanData.has_unique_price = pizzaData.has_unique_price;
-      if (pizzaData.has_unique_price && pizzaData.unique_price && pizzaData.unique_price > 0) {
-        cleanData.price_medium = pizzaData.unique_price;
-      }
-    }
-
     if (pizzaData.prices !== undefined) {
       cleanData.price_small = pizzaData.prices.small || 0;
       cleanData.price_medium = pizzaData.prices.medium || 0;
       cleanData.price_large = pizzaData.prices.large || 0;
+    }
+
+    // SEMPRE processar unique_price DEPOIS de prices para garantir que ele ganhe
+    if (pizzaData.has_unique_price && pizzaData.unique_price !== undefined) {
+      cleanData.price_medium = pizzaData.unique_price;
     }
 
     const { error } = await supabase.from(COLLECTIONS.PIZZAS).update(cleanData).eq('id', pizzaId);

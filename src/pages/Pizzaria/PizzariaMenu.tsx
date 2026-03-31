@@ -108,15 +108,22 @@ export function PizzariaMenu() {
     console.log('✅ Validação OK, gravação em curso...');
 
     // Aplicar a margem de 10% apenas para as pizzas
-    const markedUpFormData = {
+    const markedUpFormData: any = {
       ...formData,
-      unique_price: formData.unique_price ? applyMarkup(formData.unique_price) : undefined,
-      prices: {
+      unique_price: formData.unique_price !== undefined ? applyMarkup(formData.unique_price) : undefined,
+    };
+
+    // Se tiver preço único, não enviamos o objeto prices para evitar conflitos no backend
+    if (!formData.has_unique_price) {
+      markedUpFormData.prices = {
         small: formData.prices.small ? applyMarkup(formData.prices.small) : 0,
         medium: formData.prices.medium ? applyMarkup(formData.prices.medium) : 0,
         large: formData.prices.large ? applyMarkup(formData.prices.large) : 0,
-      }
-    };
+      };
+    } else {
+      // Garantir que limpamos os preços individuais se for preço único
+      markedUpFormData.prices = undefined;
+    }
 
     try {
       console.log('💾 A gravar pizza no Supabase...');
