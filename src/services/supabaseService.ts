@@ -188,6 +188,7 @@ export const ordersService = {
     const orderNumber = 20000 + Math.floor(Date.now() / 1000) % 100000;
 
     // Mapper le 'user_id' vers 'user_supabase_id' e enlever le 'user_id' original
+    // Marquer l'adresse manuellle si nécessaire
     const cleanData: any = {
       ...orderData,
       user_supabase_id: orderData.user_id,
@@ -196,7 +197,10 @@ export const ordersService = {
       user_phone: orderData.user?.phone || '',
       user_address: orderData.user?.address || '',
       order_number: orderNumber.toString(),
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      // Flexibilité sur le nom de la colonne prix pour Supabase
+      amount: orderData.total,
+      total_amount: orderData.total
     };
     
     // Remover o objeto 'user' e o 'user_id' antes de inserir (não são colunas)
@@ -232,7 +236,7 @@ export const ordersService = {
           orderId,
           items: orderItems,
           customerEmail: userEmail,
-          successUrl: `${window.location.origin}/payment-success`,
+          successUrl: `${window.location.origin}/payment-success?order_id=${orderId}`,
           cancelUrl: window.location.origin
         })
       });
