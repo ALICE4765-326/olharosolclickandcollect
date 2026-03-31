@@ -1,39 +1,28 @@
-import { importLibrary } from '@googlemaps/js-api-loader';
+import { getGoogleMapsLibrary } from '../lib/googleMaps';
 
 let isGoogleMapsLoaded = false;
 let googleMapsPromise: Promise<void> | null = null;
+const distanceCache = new Map<string, DeliveryEstimate>();
 
-const loadGoogleMaps = (): Promise<void> => {
-  if (isGoogleMapsLoaded) {
-    return Promise.resolve();
-  }
+const loadGoogleMaps = async (): Promise<void> => {
+  if (isGoogleMapsLoaded) return;
+  
+  if (googleMapsPromise) return googleMapsPromise;
 
-  if (googleMapsPromise) {
-    return googleMapsPromise;
-  }
+  // Utilisation du chargeur centralisé
+  googleMapsPromise = (async () => {
+    try {
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading Google Maps')), 3000)
+      );
 
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-  if (!apiKey || apiKey === 'YOUR_GOOGLE_MAPS_API_KEY_HERE') {
-    throw new Error('Google Maps API key not configured');
-  }
-
-  // L'initialisation se fait déjà dans main.tsx, mais on s'en assure ici aussi
-  // car ce service peut être appelé indépendamment
-  const scriptPromise = importLibrary('places').then(() => {
-    isGoogleMapsLoaded = true;
-  });
-
-  // Timeout de 5 secondes pour ne pas bloquer tout le processus de commande
-  googleMapsPromise = Promise.race([
-    scriptPromise,
-    new Promise<void>((_, reject) =>
-      setTimeout(() => reject(new Error('Timeout loading Google Maps')), 3000)
-    )
-  ]).catch(err => {
-    console.warn('⚠️ Google Maps loading failed or timed out, using fallback values:', err.message);
-    isGoogleMapsLoaded = true; // On marque comme "chargé" pour ne plus réessayer de bloquer
-  }) as Promise<void>;
+      await Promise.race([getGoogleMapsLibrary('places'), timeoutPromise]);
+      isGoogleMapsLoaded = true;
+    } catch (err) {
+      console.warn('⚠️ Google Maps loading fallback:', err);
+      isGoogleMapsLoaded = true; // On marque comme "chargé" pour ne plus bloquer
+    }
+  })();
 
   return googleMapsPromise;
 };
@@ -48,6 +37,11 @@ export const calculateDeliveryTime = async (
   destination: string
 ): Promise<DeliveryEstimate> => {
   try {
+    const cacheKey = `${origin}|${destination}`;
+    if (distanceCache.has(cacheKey)) {
+      return distanceCache.get(cacheKey)!;
+    }
+
     await loadGoogleMaps();
 
     const service = new google.maps.DistanceMatrixService();
@@ -70,10 +64,12 @@ export const calculateDeliveryTime = async (
             const durationInMinutes = Math.ceil(result.duration.value / 60);
             const distanceInKm = result.distance.value / 1000;
 
-            resolve({
+            const estimate = {
               duration: durationInMinutes,
               distance: distanceInKm
-            });
+            };
+            distanceCache.set(cacheKey, estimate);
+            resolve(estimate);
           } else {
             reject(new Error('Unable to calculate route'));
           }

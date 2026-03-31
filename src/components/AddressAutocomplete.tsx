@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapPin, X } from 'lucide-react';
-import { importLibrary } from '@googlemaps/js-api-loader';
+import { getGoogleMapsLibrary } from '../lib/googleMaps';
 
 interface AddressAutocompleteProps {
   value: string;
@@ -42,9 +42,7 @@ export const AddressAutocomplete: React.FC<AddressAutocompleteProps> = ({
 
         if (!active || !inputRef.current) return;
 
-        const importPromise = importLibrary('places') as Promise<google.maps.PlacesLibrary>;
-        
-        const { Autocomplete } = await Promise.race([importPromise, timeoutPromise]) as google.maps.PlacesLibrary;
+        const { Autocomplete } = await Promise.race([getGoogleMapsLibrary('places'), timeoutPromise]) as google.maps.PlacesLibrary;
 
         if (!active || !inputRef.current) return;
 
