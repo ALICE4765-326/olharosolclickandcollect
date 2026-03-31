@@ -331,7 +331,7 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                   <p className="text-sm text-red-800 text-center">
                     {!settings?.is_open
                       ? 'O restaurante está fechado no momento. Não é possível fazer novos pedidos. Por favor, volte mais tarde!'
-                      : openingHoursCheck.message
+                      : (openingHoursCheck?.message || 'Fora do horário de atendimento')
                     }
                   </p>
                 </div>
@@ -461,6 +461,14 @@ export const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         {items.length > 0 && (
           <div className="border-t p-4 sm:p-6 flex-shrink-0 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <div className="space-y-2 mb-4">
+              {!canOrder && (
+                <div className="mb-2 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <span className="text-xl">🚫</span>
+                  <p className="text-sm font-bold text-red-700">
+                    {!settings?.is_open ? 'Restaurante Fechado' : 'Fora de Horário'}
+                  </p>
+                </div>
+              )}
               <div className="flex justify-between text-gray-600">
                 <span>Subtotal:</span>
                 <span>{items.reduce((sum, i) => sum + i.price, 0).toFixed(2)}€</span>
