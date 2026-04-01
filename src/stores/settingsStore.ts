@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { PizzariaSettings } from '../hooks/usePizzariaSettings';
+import toast from 'react-hot-toast';
 
 interface SettingsState {
   settings: PizzariaSettings;
@@ -126,14 +127,16 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
       const { error } = await supabase
         .from('settings')
-        .upsert({ id: SETTINGS_ROW_ID, ...newSettings });
+        .update(newSettings)
+        .eq('id', SETTINGS_ROW_ID);
 
       if (error) {
-        console.error('❌ [SettingsStore] Erro ao atualizar Supabase:', error);
+        console.error('❌ [SettingsStore] Erro ao atualizar Supabase:', error.message, error.details);
+        toast.error(`Erro ao guardar: ${error.message}`);
         throw error;
       }
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ [SettingsStore] Erro ao gravar:', error);
       return false;
     }
