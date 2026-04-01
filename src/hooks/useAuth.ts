@@ -67,6 +67,9 @@ export const useAuth = create<AuthState>((set, get) => ({
       options: {
         data: {
           full_name: userData.full_name,
+          phone: userData.phone,
+          address: userData.address,
+          role: 'client'
         }
       }
     });
