@@ -1283,7 +1283,7 @@ export function PizzariaOrders() {
                     }
                     if (orderToCancel) {
                       try {
-                        await ordersService.updateOrderStatus(orderToCancel, 'cancelled', cancellationReason);
+                        await ordersService.updateOrderStatus(orderToCancel, 'cancelled', undefined, cancellationReason);
                         toast.success('Encomenda cancelada');
                         setShowCancellationModal(false);
                         setOrderToCancel(null);
