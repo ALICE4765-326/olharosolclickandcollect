@@ -77,7 +77,7 @@ export function Pizzaria() {
 
       // Détecter les nouvelles commandes en attente
       const hasNewOrders = newOrders.some(order =>
-        !currentOrderIds.has(order.id) && order.status === 'en_attente'
+        !currentOrderIds.has(order.id) && order.status === 'em_espera'
       );
 
       // Jouer le son et envoyer une notification push pour les nouvelles commandes

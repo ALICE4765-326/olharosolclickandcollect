@@ -11,7 +11,7 @@ import type { Order, OrderStatus } from '../../types';
 
 const statusConfig = {
   pendente_pagamento: { label: 'Pagamento Pendente', color: 'bg-gray-100 text-gray-800', icon: Clock },
-  en_attente: { label: 'Em Espera', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+  em_espera: { label: 'Em Espera', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
   confirmee: { label: 'Confirmada', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
   en_preparation: { label: 'Em Preparação', color: 'bg-orange-100 text-orange-800', icon: Package },
   prete: { label: 'Pronta', color: 'bg-green-100 text-green-800', icon: CheckCircle },
@@ -75,7 +75,7 @@ export function PizzariaOrders() {
     // Ne pas jouer de son si l'utilisateur est un ADMIN (comme demandé)
     if (user?.role === 'admin') return;
 
-    const newOrder = orders.find(o => o.status === 'en_attente');
+    const newOrder = orders.find(o => o.status === 'em_espera');
     
     if (newOrder) {
       if (isInitialLoad) {
@@ -394,7 +394,7 @@ export function PizzariaOrders() {
             title="Filtrar encomendas por estado"
           >
             <option value="all">Todos os Estados</option>
-            <option value="en_attente">Em Espera</option>
+            <option value="em_espera">Em Espera</option>
             <option value="confirmee">Confirmada</option>
             <option value="en_preparation">Em Preparação</option>
             <option value="prete">Pronta</option>
@@ -467,7 +467,7 @@ export function PizzariaOrders() {
                         <StatusIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         <div>
                           <p className="font-medium text-gray-900 flex items-center gap-2">
-                            <span style={order.status === 'en_attente' ? { backgroundColor: '#bbf7d0', padding: '0 4px', borderRadius: '2px' } : {}}>
+                            <span style={order.status === 'em_espera' ? { backgroundColor: '#bbf7d0', padding: '0 4px', borderRadius: '2px' } : {}}>
                               #{order.order_number}
                             </span>
                             {order.delivery_type === 'delivery' ? (
@@ -531,7 +531,7 @@ export function PizzariaOrders() {
                         className="w-full text-sm border border-gray-300 rounded px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                         title="Alterar estado da encomenda"
                       >
-                        <option value="en_attente">Em Espera</option>
+                        <option value="em_espera">Em Espera</option>
                         <option value="confirmee">Confirmada</option>
                         <option value="en_preparation">Em Preparação</option>
                         <option value="prete">Pronta</option>
@@ -576,7 +576,7 @@ export function PizzariaOrders() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-3">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              <span style={order.status === 'en_attente' ? { backgroundColor: '#bbf7d0', padding: '0 4px', borderRadius: '2px' } : {}}>
+                              <span style={order.status === 'em_espera' ? { backgroundColor: '#bbf7d0', padding: '0 4px', borderRadius: '2px' } : {}}>
                                 Encomenda #{order.order_number}
                               </span>
                             </p>
@@ -637,7 +637,7 @@ export function PizzariaOrders() {
                           className="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                           title="Alterar estado da encomenda"
                         >
-                          <option value="en_attente">Em Espera</option>
+                          <option value="em_espera">Em Espera</option>
                           <option value="confirmee">Confirmada</option>
                           <option value="en_preparation">Em Preparação</option>
                           <option value="prete">Pronta</option>

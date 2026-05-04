@@ -1,7 +1,7 @@
 // Types de base pour l'application
 export type UserRole = 'admin' | 'pizzeria' | 'client';
 
-export type OrderStatus = 'pendente_pagamento' | 'en_attente' | 'confirmee' | 'en_preparation' | 'prete' | 'em_entrega' | 'recuperee' | 'cancelled';
+export type OrderStatus = 'pendente_pagamento' | 'en_attente' | 'em_espera' | 'confirmee' | 'en_preparation' | 'prete' | 'em_entrega' | 'recuperee' | 'cancelled';
 
 export interface User {
   id: string;
