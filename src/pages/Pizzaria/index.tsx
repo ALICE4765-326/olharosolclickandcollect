@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { PizzariaSidebar } from './PizzariaSidebar';
 import { PizzariaDashboard } from './PizzariaDashboard';
@@ -8,7 +8,7 @@ import { PizzariaCategories } from './PizzariaCategories';
 import { PizzariaPromotions } from './PizzariaPromotions';
 import { PizzariaSettings } from './PizzariaSettings';
 import { audioNotificationService } from '../../services/audioNotificationService';
-import { ordersService } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabase';
 import { useSettingsStore } from '../../stores/settingsStore';
 import toast from 'react-hot-toast';
 
@@ -38,7 +38,6 @@ async function showPushNotification(logoUrl?: string) {
 }
 
 export function Pizzaria() {
-  const previousOrderIdsRef = useRef<Set<string>>(new Set());
   const { settings } = useSettingsStore();
 
   // Déverrouiller l'audio au premier clic de l'utilisateur (obligation navigateur)
@@ -70,30 +69,31 @@ export function Pizzaria() {
     }
   }, []);
 
+  // Écouter UNIQUEMENT les nouveaux INSERT sur la table orders avec statut em_espera
   useEffect(() => {
-    // S'abonner aux commandes dès l'arrivée sur l'interface pizzaria
-    const unsubscribe = ordersService.subscribeToAllOrders((newOrders) => {
-      const currentOrderIds = previousOrderIdsRef.current;
+    const channelId = `pizzaria_insert_orders_${Date.now()}`;
+    const channel = supabase
+      .channel(channelId)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload) => {
+          const newOrder = payload.new as any;
+          console.log('🆕 [Pizzaria] Nova encomenda inserida:', newOrder?.id, newOrder?.status);
+          if (newOrder?.status === 'em_espera') {
+            audioNotificationService.playNotification();
+            toast.success('Nova encomenda recebida!', { duration: 4000 });
+            showPushNotification(settings?.logo_url);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 [Pizzaria] Subscrição INSERT orders:', status);
+      });
 
-      // Détecter les nouvelles commandes en attente
-      const hasNewOrders = newOrders.some(order =>
-        !currentOrderIds.has(order.id) && order.status === 'em_espera'
-      );
-
-      // Jouer le son et envoyer une notification push pour les nouvelles commandes
-      if (hasNewOrders && currentOrderIds.size > 0) {
-        audioNotificationService.playNotification();
-        toast.success('Nova encomenda recebida!', {
-          duration: 4000,
-        });
-        showPushNotification(settings?.logo_url);
-      }
-
-      // Atualizar a lista de IDs
-      previousOrderIdsRef.current = new Set(newOrders.map(o => o.id));
-    });
-
-    return unsubscribe;
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (

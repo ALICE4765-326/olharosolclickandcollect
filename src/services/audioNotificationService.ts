@@ -1,7 +1,7 @@
 class AudioNotificationService {
   private audioContext: AudioContext | null = null;
   private isEnabled: boolean = true;
-  private volume: number = 0.7;
+  private volume: number = 1.0;
   private isUnlocked: boolean = false;
   private customSoundUrl: string | null = null;
 

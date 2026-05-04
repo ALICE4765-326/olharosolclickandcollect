@@ -461,15 +461,13 @@ export function PizzariaOrders() {
               {currentOrders.map((order) => {
                 const StatusIcon = statusConfig[order.status]?.icon || Clock;
                 return (
-                  <div key={order.id} className="p-4 border-b border-gray-200">
+                  <div key={order.id} className="p-4 border-b border-gray-200" style={order.status === 'em_espera' ? { backgroundColor: '#bbf7d0' } : {}}>
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center space-x-3">
                         <StatusIcon className="h-5 w-5 text-gray-400 flex-shrink-0" />
                         <div>
                           <p className="font-medium text-gray-900 flex items-center gap-2">
-                            <span style={order.status === 'em_espera' ? { backgroundColor: '#bbf7d0', padding: '0 4px', borderRadius: '2px' } : {}}>
-                              #{order.order_number}
-                            </span>
+                            #{order.order_number}
                             {order.delivery_type === 'delivery' ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800" title="Entrega ao domicílio">
                                 <Truck className="h-3 w-3" />
@@ -567,7 +565,7 @@ export function PizzariaOrders() {
               {currentOrders.map((order) => {
                 const StatusIcon = statusConfig[order.status]?.icon || Clock;
                 return (
-                  <li key={order.id} className="px-6 py-4">
+                  <li key={order.id} className="px-6 py-4" style={order.status === 'em_espera' ? { backgroundColor: '#bbf7d0' } : {}}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <div className="flex-shrink-0">
@@ -576,9 +574,7 @@ export function PizzariaOrders() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center space-x-3">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              <span style={order.status === 'em_espera' ? { backgroundColor: '#bbf7d0', padding: '0 4px', borderRadius: '2px' } : {}}>
-                                Encomenda #{order.order_number}
-                              </span>
+                              Encomenda #{order.order_number}
                             </p>
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[order.status]?.color || 'bg-gray-100 text-gray-800'}`}>
                               {statusConfig[order.status]?.label || order.status}
